@@ -12,6 +12,7 @@
     "outDir": "dist"
   },
   "include": [
+    "*.d.ts",
     "ai/**/*.ts",
     "api/**/*.ts",
     "crawler/**/*.ts",

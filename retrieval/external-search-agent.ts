@@ -1,6 +1,6 @@
 type SearchIntent = "informational" | "navigational" | "transactional" | "research/deep dive";
 
-interface TavilySearchResult {
+interface SearchApiResult {
   title?: string;
   url?: string;
   content?: string;
@@ -10,7 +10,11 @@ interface TavilySearchResult {
 }
 
 interface TavilySearchResponse {
-  results?: TavilySearchResult[];
+  results?: SearchApiResult[];/*
+    title?: string;
+    link?: string;
+    snippet?: string;
+*/
 }
 
 export interface SearchSource {
@@ -60,7 +64,7 @@ const synonymMap: Record<string, string[]> = {
   ai: ["artificial intelligence", "llm"],
   api: ["developer docs", "reference"],
   seo: ["search engine optimization", "ranking"],
-  tavily: ["search api", "web search"],
+  search: ["search api", "web search"],
 };
 
 function normalizeWhitespace(value: string): string {
@@ -94,9 +98,7 @@ function buildSearchQueries(query: string, intent: SearchIntent): string[] {
 
   const condensed = tokens.filter((token) => !fillerWords.has(token.toLowerCase()));
   const expansions = condensed.flatMap((token) => synonymMap[token.toLowerCase()] ?? []);
-
-  const searchQueries = new Set<string>();
-  searchQueries.add(normalized);
+  const searchQueries = new Set<string>([normalized]);
 
   if (condensed.length > 0) {
     searchQueries.add(condensed.join(" "));
@@ -126,7 +128,7 @@ function cleanText(value: string | undefined): string {
   );
 }
 
-function summarizeResult(result: TavilySearchResult): string {
+function summarizeResult(result: SearchApiResult): string {
   const content = cleanText(result.content || result.raw_content);
   if (!content) {
     return "insufficient data";
@@ -164,13 +166,13 @@ function getRecencyBoost(publishedDate?: string): number {
   return 0;
 }
 
-async function callTavilySearch(searchQuery: string): Promise<TavilySearchResult[]> {
-  const apiKey = process.env.TAVILY_API_KEY;
+async function callSearchApi(searchQuery: string): Promise<SearchApiResult[]> {
+  const apiKey = process.env.TAVILY_API_KEY ?? process.env.SEARCH_API_KEY;
   if (!apiKey) {
-    throw new Error("TAVILY_API_KEY is required.");
+    throw new Error("TAVILY_API_KEY or SEARCH_API_KEY is required.");
   }
 
-  const response = await fetch("https://api.tavily.com/search", {
+  const response = await fetch(process.env.TAVILY_API_URL ?? process.env.SEARCH_API_URL ?? "https://api.tavily.com/search", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -185,16 +187,15 @@ async function callTavilySearch(searchQuery: string): Promise<TavilySearchResult
       topic: "general",
     }),
   });
-
   if (!response.ok) {
-    throw new Error(`Tavily search failed with status ${response.status}.`);
+    throw new Error(`Search API failed with status ${response.status}.`);
   }
 
   const data = (await response.json()) as TavilySearchResponse;
   return data.results ?? [];
 }
 
-function rankAndSummarizeResults(results: TavilySearchResult[]): SearchSource[] {
+function rankAndSummarizeResults(results: SearchApiResult[]): SearchSource[] {
   const deduped = new Map<string, SearchSource & { rankScore: number }>();
 
   results.forEach((result) => {
@@ -241,7 +242,7 @@ function buildFinalAnswer(sources: SearchSource[]): string {
 export async function runExternalSearchAgent(query: string): Promise<SearchAgentResponse> {
   const intent = classifyIntent(query);
   const searchQueries = buildSearchQueries(query, intent);
-  const searchResponses = await Promise.all(searchQueries.map((searchQuery) => callTavilySearch(searchQuery)));
+  const searchResponses = await Promise.all(searchQueries.map((searchQuery) => callSearchApi(searchQuery)));
   const flattenedResults = searchResponses.flat();
   const sources = rankAndSummarizeResults(flattenedResults);
 
@@ -252,3 +253,7 @@ export async function runExternalSearchAgent(query: string): Promise<SearchAgent
     final_answer: buildFinalAnswer(sources),
   };
 }
+
+
+
+

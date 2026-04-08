@@ -82,9 +82,95 @@
       overflow: visible;
     }
 
+    .search-shell.is-voice-mode {
+      grid-template-columns: 24px 24px 1fr auto 32px;
+    }
+
+    .search-shell.is-voice-mode > * {
+      grid-row: 1;
+    }
+
+    .search-shell.is-voice-mode #attachButton {
+      grid-column: 1;
+    }
+
+    .search-shell.is-voice-mode > svg {
+      grid-column: 2;
+    }
+
+    .search-shell.is-voice-mode .query-input {
+      grid-column: 3;
+    }
+
+    .voice-feedback {
+      position: static;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      justify-self: end;
+      padding: 0;
+      min-width: 0;
+      grid-column: 4;
+    }
+
+    .voice-feedback.is-visible {
+      display: inline-flex;
+    }
+
+    .voice-stop {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 12px;
+      background: #d2e3fc;
+      color: #1a73e8;
+      font-size: 0.92rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .voice-stop.is-visible {
+      display: inline-flex;
+    }
+
+    .voice-stop-dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .voice-stop-dots span {
+      width: 5px;
+      height: 5px;
+      border-radius: 999px;
+      background: currentColor;
+      animation: voiceDotPulse 1s ease-in-out infinite;
+    }
+
+    .voice-stop-dots span:nth-child(2) { animation-delay: 0.15s; }
+    .voice-stop-dots span:nth-child(3) { animation-delay: 0.3s; }
+
+    @keyframes voiceDotPulse {
+      0%, 100% { opacity: 0.35; transform: scale(0.75); }
+      50% { opacity: 1; transform: scale(1); }
+    }
+
+    .search-shell.is-voice-mode #voiceButton,
+    .search-shell.is-voice-mode #clearButton {
+      display: none;
+    }
+
+    .search-shell.is-voice-mode #searchButton {
+      grid-column: 5;
+      margin-left: 8px;
+      justify-self: end;
+    }
+
     .search-shell {
       display: grid;
-      grid-template-columns: 24px 24px 1fr 24px;
+      grid-template-columns: 24px 24px 1fr 24px 24px 32px;
       align-items: center;
       gap: 12px;
       min-height: 62px;
@@ -93,6 +179,11 @@
       background: var(--panel);
       box-shadow: var(--shadow);
       border: 1px solid rgba(232, 234, 237, 0.9);
+    }
+
+    .search-shell.is-loading {
+      border-color: #d2e3fc;
+      box-shadow: 0 10px 28px rgba(26, 115, 232, 0.16);
     }
 
     .search-shell svg {
@@ -120,6 +211,10 @@
       color: #b6b9bd;
     }
 
+    .query-input:disabled {
+      cursor: progress;
+    }
+
     .icon-button {
       border: 0;
       background: transparent;
@@ -127,6 +222,7 @@
       cursor: pointer;
       display: grid;
       place-items: center;
+      color: var(--muted);
     }
 
     .plus-button {
@@ -137,6 +233,35 @@
 
     .plus-button:hover {
       color: var(--text);
+    }
+
+    .clear-button {
+      font-size: 1.1rem;
+      line-height: 1;
+      visibility: hidden;
+    }
+
+    .clear-button.is-visible {
+      visibility: visible;
+    }
+
+    .search-submit {
+      width: 32px;
+      height: 32px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #ffffff;
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+    }
+
+    .search-submit:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 18px rgba(26, 115, 232, 0.26);
+      background: #1765cc;
+    }
+
+    .search-submit svg {
+      stroke: currentColor;
     }
 
     .attach-menu {
@@ -308,10 +433,77 @@
       margin-bottom: 10px;
     }
 
-    .ai-answer p {
+    .overview-body {
+      display: grid;
+      gap: 18px;
+    }
+
+    .overview-section {
+      display: grid;
+      gap: 10px;
+    }
+
+    .overview-heading {
+      margin: 0;
+      color: var(--text);
+      font-size: 1.02rem;
+      font-weight: 700;
+    }
+
+    .overview-text {
       margin: 0;
       line-height: 1.7;
       color: var(--text);
+    }
+
+    .overview-list {
+      margin: 0;
+      padding-left: 20px;
+      color: var(--text);
+      line-height: 1.7;
+    }
+
+    .overview-list li {
+      margin-bottom: 8px;
+    }
+
+    .overview-table {
+      width: 100%;
+      border-collapse: collapse;
+      border-spacing: 0;
+      overflow: hidden;
+      border: 1px solid #d7e3fc;
+      border-radius: 16px;
+      background: #ffffff;
+    }
+
+    .overview-table th,
+    .overview-table td {
+      padding: 10px 12px;
+      text-align: left;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      border-bottom: 1px solid #e8eefc;
+      vertical-align: top;
+    }
+
+    .overview-table th {
+      color: var(--muted);
+      font-weight: 700;
+      background: #f8fbff;
+    }
+
+    .overview-table tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .overview-table a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .overview-table a:hover {
+      text-decoration: underline;
     }
 
     .citations {
@@ -334,6 +526,23 @@
       gap: 12px;
       color: var(--muted);
       font-size: 0.9rem;
+    }
+
+    .status-pill {
+      display: none;
+      width: fit-content;
+      padding: 8px 12px;
+      border-radius: 999px;
+      background: #eef3fd;
+      color: var(--blue);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+
+    .status-pill.is-visible {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
 
     .results-list {
@@ -507,7 +716,7 @@
 <body>
   <main class="page">
     <section class="hero">
-      <h1 class="brand"><strong>[Quantum</strong> Search]</h1>
+      <h1 class="brand"><strong>[Quinfosys</strong> Search]</h1>
 
       <div class="search-stage">
         <div class="search-card">
@@ -537,6 +746,25 @@
                 <path d="M12 18v3"></path>
               </svg>
             </button>
+
+            <button id="clearButton" class="icon-button clear-button" type="button" aria-label="Clear search">×</button>
+
+            <button id="searchButton" class="icon-button search-submit" type="button" aria-label="Run search">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h12"></path>
+                <path d="M13 6l6 6-6 6"></path>
+              </svg>
+            </button>
+            <div id="voiceFeedback" class="voice-feedback" aria-live="polite">
+              <button id="voiceStopButton" class="voice-stop" type="button" aria-label="Stop recording">
+                <span class="voice-stop-dots" aria-hidden="true">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </span>
+                <span>Stop</span>
+              </button>
+            </div>
           </div>
 
           <div id="attachMenu" class="attach-menu">
@@ -570,11 +798,13 @@
     <section class="results-section">
       <article id="aiAnswer" class="ai-answer" aria-live="polite">
         <div class="answer-label">AI Overview</div>
-        <p id="answerText"></p>
+        <div id="answerText" class="overview-body"></div>
         <div id="citations" class="citations"></div>
       </article>
 
-      <div class="results-head" id="resultsHead"></div>
+      <div class="results-head" id="resultsHead">
+        <div id="statusPill" class="status-pill"></div>
+      </div>
 
       <div id="relatedLabel" class="related-label">Suggested questions</div>
       <div id="relatedRow" class="related-row"></div>
@@ -682,21 +912,9 @@
       }
     };
 
-    const staticSuggestionSeed = [
-      "what is reciprocal rank fusion in search?",
-      "bm25 vs vector search",
-      "how pagerank affects ranking",
-      "what is semantic retrieval",
-      "hybrid retrieval architecture",
-      "why rerank top 50 documents",
-      "dense retrieval architecture",
-      "cross encoder reranking",
-      "authority signals in search",
-      "freshness decay ranking"
-    ];
-
     const historyKey = "ai-search-history";
     const queryInput = document.getElementById("query");
+    const searchShell = document.querySelector(".search-shell");
     const attachButton = document.getElementById("attachButton");
     const attachMenu = document.getElementById("attachMenu");
     const uploadImageButton = document.getElementById("uploadImageButton");
@@ -704,6 +922,10 @@
     const imagePicker = document.getElementById("imagePicker");
     const filePicker = document.getElementById("filePicker");
     const voiceButton = document.getElementById("voiceButton");
+    const voiceFeedback = document.getElementById("voiceFeedback");
+    const voiceStopButton = document.getElementById("voiceStopButton");
+    const clearButton = document.getElementById("clearButton");
+    const searchButton = document.getElementById("searchButton");
     const suggestPanel = document.getElementById("suggestPanel");
     const answerWrap = document.getElementById("aiAnswer");
     const answerText = document.getElementById("answerText");
@@ -712,6 +934,7 @@
     const relatedRow = document.getElementById("relatedRow");
     const relatedLabel = document.getElementById("relatedLabel");
     const resultsHead = document.getElementById("resultsHead");
+    const statusPill = document.getElementById("statusPill");
     const emptyState = document.getElementById("emptyState");
     const locationText = document.getElementById("locationText");
     const locationMeta = document.getElementById("locationMeta");
@@ -722,6 +945,16 @@
     let liveSuggestions = [];
     let answerTypingTimer = null;
     let answerTypingToken = 0;
+    let searchController = null;
+    let activeSearchToken = 0;
+    let lastSubmittedQuery = "";
+    let voiceDraft = "";
+    const defaultSearchPlaceholder = "Search anything";
+    let voicePreviousValue = "";
+    let voiceStopRequested = false;
+    let locationWatchId = null;
+    let bestLocationAccuracy = Number.POSITIVE_INFINITY;
+    let locationSettled = false;
 
 
     function readHistory() {
@@ -758,7 +991,7 @@
     }
 
     function buildSuggestionPool() {
-      const combined = [...readHistory(), ...liveSuggestions, ...staticSuggestionSeed];
+      const combined = [...readHistory(), ...liveSuggestions];
       const seen = new Set();
 
       return combined.filter((item) => {
@@ -776,6 +1009,39 @@
       return staticDataset[normalized] || null;
     }
 
+    function updateClearButton() {
+      clearButton.classList.toggle("is-visible", Boolean(queryInput.value.trim()));
+    }
+
+    function setSearchStatus(message) {
+      const value = (message || "").trim();
+      statusPill.textContent = value;
+      statusPill.classList.toggle("is-visible", Boolean(value));
+      resultsHead.style.display = value ? "flex" : "none";
+    }
+
+    function setSearchLoading(isLoading, message) {
+      searchShell.classList.toggle("is-loading", isLoading);
+      searchButton.disabled = isLoading;
+      queryInput.disabled = false;
+      setSearchStatus(isLoading ? (message || "Searching live web...") : message || "");
+    }
+
+    function setVoiceUiState(mode) {
+      const visible = mode !== "idle";
+      searchShell.classList.toggle("is-voice-mode", visible);
+      voiceFeedback.classList.toggle("is-visible", visible);
+      voiceStopButton.classList.toggle("is-visible", mode === "recording");
+      voiceButton.style.opacity = mode === "recording" ? "0.55" : "1";
+      queryInput.placeholder = mode === "recording" ? "Listening..." : defaultSearchPlaceholder;
+    }
+
+    function clearVoiceDraft() {
+      voiceDraft = "";
+      setVoiceUiState("idle");
+      updateClearButton();
+    }
+
     function clearAnswerTyping() {
       if (answerTypingTimer) {
         clearTimeout(answerTypingTimer);
@@ -783,33 +1049,92 @@
       }
     }
 
-    function animateAnswerText(message) {
-      const content = (message || "").trim();
-      const token = ++answerTypingToken;
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
 
-      clearAnswerTyping();
+    function splitIntoSentences(text) {
+      return (text || "")
+        .split(/(?<=[.!?])\s+/)
+        .map((sentence) => sentence.trim())
+        .map((sentence) => sentence.replace(/^#{1,6}\s*/g, ""))
+        .map((sentence) => sentence.replace(/\s+#\s+/g, " "))
+        .map((sentence) => sentence.replace(/\s{2,}/g, " ").trim())
+        .filter(Boolean);
+    }
 
-      if (!content) {
-        answerText.textContent = "";
-        return;
+    function formatOverviewHtml(query, message, sources) {
+      const cleanedMessage = (message || "").trim();
+      if (!cleanedMessage) {
+        return "";
       }
 
-      answerText.textContent = "";
+      const sentences = splitIntoSentences(cleanedMessage);
+      const summaryText = sentences.slice(0, 2).join(" ") || cleanedMessage;
+      const pointItems = (sentences.length > 1 ? sentences : [cleanedMessage])
+        .slice(0, 4)
+        .map((sentence) => `<li>${escapeHtml(sentence)}</li>`)
+        .join("");
 
-      const step = (index) => {
-        if (token !== answerTypingToken) {
-          return;
-        }
+      const tableRows = (sources || [])
+        .slice(0, 4)
+        .map((source, index) => {
+          let host = source.url;
+          try {
+            host = new URL(source.url).hostname.replace(/^www\./, "");
+          } catch {
+          }
 
-        answerText.textContent = content.slice(0, index);
-        if (index < content.length) {
-          answerTypingTimer = setTimeout(() => step(index + 1), 12);
-        } else {
-          answerTypingTimer = null;
-        }
-      };
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td><a href="${escapeHtml(source.url)}" rel="noreferrer noopener">${escapeHtml(source.title || "Untitled source")}</a></td>
+              <td>${escapeHtml(host)}</td>
+            </tr>
+          `;
+        })
+        .join("");
 
-      step(1);
+      return `
+        <section class="overview-section">
+          <h3 class="overview-heading">Summary</h3>
+          <p class="overview-text">${escapeHtml(summaryText)}</p>
+        </section>
+        <section class="overview-section">
+          <h3 class="overview-heading">Key Points</h3>
+          <ol class="overview-list">${pointItems}</ol>
+        </section>
+        ${tableRows ? `
+          <section class="overview-section">
+            <h3 class="overview-heading">Top Sources</h3>
+            <table class="overview-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Source</th>
+                  <th>Domain</th>
+                </tr>
+              </thead>
+              <tbody>${tableRows}</tbody>
+            </table>
+          </section>
+        ` : ""}
+        <section class="overview-section">
+          <h3 class="overview-heading">Query</h3>
+          <p class="overview-text"><strong>${escapeHtml(query)}</strong></p>
+        </section>
+      `;
+    }
+
+    function renderOverview(query, message, sources = []) {
+      clearAnswerTyping();
+      answerTypingToken += 1;
+      answerText.innerHTML = formatOverviewHtml(query, message, sources);
     }
 
     function setSuggestedQuestions(items, currentQuery) {
@@ -850,11 +1175,86 @@
       const shortTopic = sourceTitle || cleanedQuery;
 
       return [
-        `Explain ${cleanedQuery} in simple terms`,
-        `How does ${cleanedQuery} connect to quantum SEO?`,
-        `What are the practical uses of ${shortTopic}?`,
-        `Give examples related to ${cleanedQuery}`
+        `Can you explain ${cleanedQuery} in simple words with a step-by-step example?`,
+        `What are the most important facts, benefits, and practical uses related to ${shortTopic}?`,
+        `Can you compare different ways to understand or apply ${cleanedQuery} in real life?`,
+        `What common mistakes should someone avoid when learning about ${cleanedQuery}?`
       ];
+    }
+
+    function getCurrentPositionAsync(options) {
+      return new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, options);
+      });
+    }
+
+    function stopLocationWatch() {
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        locationWatchId = null;
+      }
+    }
+
+    async function reverseLookupLocation(latitude, longitude, accuracy) {
+      try {
+        const response = await fetch(`/api/location/reverse?lat=${encodeURIComponent(latitude)}&lng=${encodeURIComponent(longitude)}`);
+        if (!response.ok) {
+          throw new Error(`Reverse geocode failed with status ${response.status}`);
+        }
+
+        const payload = await response.json();
+        const topResult = payload.results?.[0];
+        if (!topResult) {
+          return false;
+        }
+
+        const locality = [
+          topResult.areaName,
+          topResult.cityName,
+          topResult.stateName,
+          topResult.countryName,
+          topResult.pincode
+        ].filter(Boolean).join(", ");
+
+        const locationLabel = locality || topResult.formattedAddress || "";
+        if (!locationLabel) {
+          return false;
+        }
+
+        locationText.textContent = locationLabel;
+        locationMeta.textContent = `Latitude ${latitude.toFixed(5)}, Longitude ${longitude.toFixed(5)}`;
+        return true;
+      } catch (error) {
+        console.error(error);
+        return false;
+      }
+    }
+
+    async function applyLocationFix(position, options = {}) {
+      const { latitude, longitude, accuracy } = position.coords;
+      const roundedAccuracy = Math.round(accuracy);
+      const shouldUseFix =
+        options.force === true
+        || accuracy < bestLocationAccuracy - 5
+        || !Number.isFinite(bestLocationAccuracy);
+
+      if (!shouldUseFix) {
+        return;
+      }
+
+      bestLocationAccuracy = accuracy;
+      locationText.textContent = `Refining your location...`;
+      locationMeta.textContent = `Latitude ${latitude.toFixed(5)}, Longitude ${longitude.toFixed(5)}`;
+
+      const resolved = await reverseLookupLocation(latitude, longitude, accuracy);
+      if (!resolved) {
+        locationText.textContent = `Latitude ${latitude.toFixed(5)}, Longitude ${longitude.toFixed(5)}`;
+      }
+
+      if (accuracy <= 40) {
+        locationSettled = true;
+        stopLocationWatch();
+      }
     }
 
     async function updateUserLocation() {
@@ -866,49 +1266,64 @@
 
       locationText.textContent = "Requesting your current location...";
       locationMeta.textContent = "";
+      bestLocationAccuracy = Number.POSITIVE_INFINITY;
+      locationSettled = false;
+      stopLocationWatch();
 
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude, accuracy } = position.coords;
-          locationText.textContent = `Latitude ${latitude.toFixed(5)}, Longitude ${longitude.toFixed(5)}`;
-          locationMeta.textContent = `Accuracy about ${Math.round(accuracy)} meters.`;
+      try {
+        let position;
 
-          try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${latitude}&lon=${longitude}`);
-            if (!response.ok) {
-              throw new Error(`Reverse geocode failed with status ${response.status}`);
-            }
-
-            const payload = await response.json();
-            const address = payload.address || {};
-            const locality = [address.city, address.town, address.village, address.state, address.country]
-              .filter(Boolean)
-              .join(", ");
-
-            if (locality) {
-              locationText.textContent = locality;
-              locationMeta.textContent = `Latitude ${latitude.toFixed(5)}, Longitude ${longitude.toFixed(5)}. Accuracy about ${Math.round(accuracy)} meters.`;
-            }
-          } catch (error) {
-            console.error(error);
+        try {
+          position = await getCurrentPositionAsync({
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 300000
+          });
+        } catch (error) {
+          if (error.code !== 3) {
+            throw error;
           }
-        },
-        (error) => {
-          const errors = {
-            1: "Location access was denied in the browser.",
-            2: "Your location could not be determined.",
-            3: "Location request timed out."
-          };
 
-          locationText.textContent = errors[error.code] || "Unable to read your current location.";
-          locationMeta.textContent = "";
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 300000
+          position = await getCurrentPositionAsync({
+            enableHighAccuracy: false,
+            timeout: 20000,
+            maximumAge: 600000
+          });
         }
-      );
+
+        await applyLocationFix(position, { force: true });
+
+        locationWatchId = navigator.geolocation.watchPosition(
+          (watchPosition) => {
+            if (locationSettled) {
+              stopLocationWatch();
+              return;
+            }
+
+            void applyLocationFix(watchPosition);
+          },
+          () => {
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0
+          }
+        );
+
+        setTimeout(() => {
+          stopLocationWatch();
+        }, 30000);
+      } catch (error) {
+        const errors = {
+          1: "Location access was denied in the browser.",
+          2: "Your location could not be determined.",
+          3: "Location request timed out."
+        };
+
+        locationText.textContent = errors[error.code] || "Unable to read your current location.";
+        locationMeta.textContent = "";
+      }
     }
 
     function renderResults(query) {
@@ -920,14 +1335,14 @@
         setSuggestedQuestions([], "");
         emptyState.style.display = "block";
         emptyState.textContent = "";
-        resultsHead.style.display = "none";
+        setSearchStatus("");
         return;
       }
 
       const state = getState(value);
       if (!state) {
         answerWrap.classList.add("is-visible");
-        animateAnswerText("No cached preview is available for this query.");
+        renderOverview(value, "No cached preview is available for this query.", []);
         citationsEl.innerHTML = "";
         resultsEl.innerHTML = "";
         setSuggestedQuestions(buildFollowUpQuestions(value, []), value);
@@ -936,7 +1351,11 @@
         return;
       }
 
-      animateAnswerText(state.answer);
+      renderOverview(value, state.answer, state.results.map((result) => ({
+        title: result.title,
+        url: result.url,
+        summary: result.snippet
+      })));
       citationsEl.innerHTML = "";
       resultsEl.innerHTML = "";
 
@@ -963,7 +1382,7 @@
       setSuggestedQuestions(state.relatedQueries, value);
 
       answerWrap.classList.add("is-visible");
-      resultsHead.style.display = "none";
+      setSearchStatus("");
       emptyState.style.display = state.results.length === 0 ? "block" : "none";
       emptyState.textContent = state.results.length === 0 ? "No matching results found." : "";
     }
@@ -971,18 +1390,18 @@
     function renderErrorState(query, message) {
       const value = query.trim();
       answerWrap.classList.add("is-visible");
-      animateAnswerText(message || "Search is temporarily unavailable.");
+      renderOverview(value, message || "Search is temporarily unavailable.", []);
       citationsEl.innerHTML = "";
       resultsEl.innerHTML = "";
       setSuggestedQuestions(buildFollowUpQuestions(value, []), value);
-      resultsHead.style.display = "none";
+      setSearchStatus("Showing fallback response");
       emptyState.style.display = "block";
       emptyState.textContent = value ? `No live results returned for "${value}".` : "Search is temporarily unavailable.";
     }
 
     function renderLiveResults(query, payload) {
       const sources = Array.isArray(payload.sources) ? payload.sources : [];
-      animateAnswerText(payload.final_answer || "insufficient data");
+      renderOverview(query, payload.final_answer || "insufficient data", sources);
       citationsEl.innerHTML = "";
       resultsEl.innerHTML = "";
 
@@ -1005,12 +1424,12 @@
       });
 
       setSuggestedQuestions(
-        (payload.search_queries || []).length ? payload.search_queries : buildFollowUpQuestions(query, sources),
+        buildFollowUpQuestions(query, sources),
         query
       );
 
       answerWrap.classList.add("is-visible");
-      resultsHead.style.display = "none";
+      setSearchStatus(sources.length ? `Live results for "${query}"` : "No strong live sources found");
       emptyState.style.display = sources.length === 0 ? "block" : "none";
       emptyState.textContent = sources.length === 0 ? "No matching results found." : "";
     }
@@ -1124,24 +1543,55 @@
       if (!value) {
         renderResults("");
         closeDropdown();
+        updateClearButton();
         return;
       }
 
+      if (searchController) {
+        searchController.abort();
+      }
+
+      const searchToken = ++activeSearchToken;
+      searchController = new AbortController();
       queryInput.value = value;
+      updateClearButton();
       saveHistory(value);
       closeDropdown();
+      setSearchLoading(true);
+      lastSubmittedQuery = value;
 
       try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(value)}`);
+        const response = await fetch(`/api/search?q=${encodeURIComponent(value)}`, {
+          signal: searchController.signal
+        });
         if (!response.ok) {
           throw new Error(`Search request failed with status ${response.status}`);
         }
 
         const payload = await response.json();
+        if (searchToken !== activeSearchToken) {
+          return;
+        }
         renderLiveResults(value, payload);
       } catch (error) {
+        if (error.name === "AbortError") {
+          return;
+        }
+
+        const cachedState = getState(value);
+        if (cachedState) {
+          renderResults(value);
+          setSearchStatus("Live search timed out. Showing local preview");
+          return;
+        }
+
         console.error(error);
         renderErrorState(value, "Live search could not complete.");
+      } finally {
+        if (searchToken === activeSearchToken) {
+          searchController = null;
+          setSearchLoading(false, statusPill.textContent);
+        }
       }
     }
 
@@ -1150,10 +1600,12 @@
     });
 
     queryInput.addEventListener("input", () => {
+      updateClearButton();
       if (queryInput.value.trim()) {
         openDropdown(queryInput.value);
       } else {
         openDropdown("");
+        setSearchStatus(lastSubmittedQuery ? `Last search: ${lastSubmittedQuery}` : "");
       }
     });
 
@@ -1206,10 +1658,6 @@
         liveSuggestions = [];
       }
 
-      if (liveSuggestions.length < 5) {
-        const fallbackTopics = staticSuggestionSeed.filter((item) => !liveSuggestions.includes(item));
-        liveSuggestions = [...liveSuggestions, ...fallbackTopics].slice(0, 5);
-      }
     }
 
     voiceButton.addEventListener("click", () => {
@@ -1223,40 +1671,90 @@
 
       if (recognition) {
         recognition.stop();
-        recognition = null;
-        voiceButton.style.opacity = "1";
         return;
       }
 
+      voicePreviousValue = queryInput.value;
+      voiceDraft = "";
+      voiceStopRequested = false;
+      queryInput.value = "";
+      updateClearButton();
       recognition = new SpeechRecognition();
       recognition.lang = "en-US";
       recognition.interimResults = false;
       recognition.maxAlternatives = 1;
-
-      voiceButton.style.opacity = "0.55";
+      setVoiceUiState("recording");
 
       recognition.onresult = (event) => {
-        const transcript = event.results[0][0].transcript || "";
-        queryInput.value = transcript;
-        void executeSearch(transcript);
+        for (let index = event.resultIndex; index < event.results.length; index += 1) {
+          const transcript = event.results[index][0]?.transcript || "";
+          if (event.results[index].isFinal) {
+            voiceDraft = `${voiceDraft} ${transcript}`.trim();
+          }
+        }
       };
 
       recognition.onerror = () => {
         recognition = null;
-        voiceButton.style.opacity = "1";
+        const transcript = voiceDraft.trim();
+        if (transcript) {
+          queryInput.value = transcript;
+        } else {
+          queryInput.value = voicePreviousValue;
+        }
+        clearVoiceDraft();
       };
 
       recognition.onend = () => {
         recognition = null;
-        voiceButton.style.opacity = "1";
+        const transcript = voiceDraft.trim();
+        if (transcript) {
+          queryInput.value = transcript;
+          updateClearButton();
+          queryInput.focus();
+        } else {
+          queryInput.value = voicePreviousValue;
+        }
+        voicePreviousValue = "";
+        voiceStopRequested = false;
+        clearVoiceDraft();
       };
 
       recognition.start();
     });
 
+    voiceStopButton.addEventListener("click", () => {
+      if (recognition) {
+        voiceStopRequested = true;
+        setVoiceUiState("idle");
+        recognition.stop();
+      }
+    });
+
     attachButton.addEventListener("click", (event) => {
       event.stopPropagation();
       attachMenu.classList.toggle("is-open");
+    });
+
+    clearButton.addEventListener("click", () => {
+      if (searchController) {
+        searchController.abort();
+        searchController = null;
+      }
+      if (recognition) {
+        recognition.stop();
+      }
+      clearVoiceDraft();
+      activeSearchToken += 1;
+      queryInput.value = "";
+      updateClearButton();
+      setSearchLoading(false, "");
+      renderResults("");
+      queryInput.focus();
+    });
+
+    searchButton.addEventListener("click", () => {
+      void executeSearch(queryInput.value);
     });
 
     uploadImageButton.addEventListener("click", () => {
@@ -1297,6 +1795,7 @@
 
     renderResults("");
     closeDropdown();
+    updateClearButton();
     void loadTrendingTopics();
     void updateUserLocation();
   </script>

@@ -3,10 +3,39 @@ import { readFile, access } from "node:fs/promises";
 import { constants } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { URL } from "node:url";
+import { createRequire } from "node:module";
+import {
+  initializeSearchEngine as initializeLocalSearchEngine,
+  indexUrls as indexLocalUrls,
+  getSearchEngineStatus as getLocalSearchEngineStatus,
+  search as searchLocalIndex
+} from "./local-search-engine.mjs";
+import {
+  initializeSearchEngine as initializePostgresSearchEngine,
+  indexUrls as indexPostgresUrls,
+  getSearchEngineStatus as getPostgresSearchEngineStatus,
+  search as searchPostgresIndex
+} from "./postgres-search-engine.mjs";
+import { geocodeAddress, reverseGeocode } from "./google-geocode.mjs";
 
-const host = "127.0.0.1";
-const port = 3000;
+const require = createRequire(import.meta.url);
+const googleTrends = require("google-trends-api");
+
+const host = process.env.HOST ?? "127.0.0.1";
+const port = Number(process.env.PORT ?? "3000");
 const root = process.cwd();
+const liveSearchCache = new Map();
+const liveSearchTtlMs = 1000 * 60 * 5;
+const searchApiTimeoutMs = 8000;
+const searchApiMaxAttempts = 2;
+const liveSearchResultLimit = 15;
+let activeSearchEngine = {
+  mode: "local",
+  initialize: initializeLocalSearchEngine,
+  indexUrls: indexLocalUrls,
+  getStatus: getLocalSearchEngineStatus,
+  search: searchLocalIndex
+};
 
 const contentTypes = {
   ".css": "text/css; charset=utf-8",
@@ -62,11 +91,38 @@ const synonymMap = {
   ai: ["artificial intelligence", "llm"],
   api: ["developer docs", "reference"],
   seo: ["search engine optimization", "ranking"],
-  tavily: ["search api", "web search"]
+  search: ["search api", "web search"]
 };
 
 function normalizeWhitespace(value) {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function getCachedLiveSearch(query) {
+  const key = normalizeWhitespace(query).toLowerCase();
+  const cached = liveSearchCache.get(key);
+  if (!cached) {
+    return null;
+  }
+
+  if (Date.now() - cached.timestamp > liveSearchTtlMs) {
+    liveSearchCache.delete(key);
+    return null;
+  }
+
+  return cached.payload;
+}
+
+function setCachedLiveSearch(query, payload) {
+  const key = normalizeWhitespace(query).toLowerCase();
+  liveSearchCache.set(key, {
+    payload,
+    timestamp: Date.now()
+  });
 }
 
 function classifyIntent(query) {
@@ -169,43 +225,68 @@ async function fetchWikipediaSummary(query) {
   };
 }
 
-async function callTavilySearch(searchQuery) {
-  const apiKey = process.env.TAVILY_API_KEY;
-  if (!apiKey) throw new Error("TAVILY_API_KEY is required.");
+async function callSearchApi(searchQuery) {
+  const apiKey = process.env.TAVILY_API_KEY ?? process.env.SEARCH_API_KEY;
+  const searchApiUrl = process.env.TAVILY_API_URL ?? process.env.SEARCH_API_URL ?? "https://api.tavily.com/search";
+  if (!apiKey) throw new Error("TAVILY_API_KEY or SEARCH_API_KEY is required.");
 
-  const response = await fetch("https://api.tavily.com/search", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      api_key: apiKey,
-      query: searchQuery,
-      search_depth: "advanced",
-      max_results: 5,
-      include_answer: false,
-      include_raw_content: true,
-      topic: "general"
-    })
-  });
+  let lastError = null;
 
-  if (!response.ok) {
-    throw new Error(`Tavily search failed with status ${response.status}.`);
+  for (let attempt = 1; attempt <= searchApiMaxAttempts; attempt += 1) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), searchApiTimeoutMs);
+
+    try {
+      const response = await fetch(searchApiUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: apiKey,
+          query: searchQuery,
+          search_depth: "advanced",
+          max_results: liveSearchResultLimit,
+          include_answer: false,
+          include_raw_content: true,
+          topic: "general"
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search API failed with status ${response.status}.`);
+      }
+
+      const data = await response.json();
+      return data.results ?? [];
+    } catch (error) {
+      lastError = error;
+      if (attempt < searchApiMaxAttempts) {
+        await delay(250 * attempt);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+    }
   }
 
-  const data = await response.json();
-  return data.results ?? [];
+  throw lastError ?? new Error("Search API failed.");
 }
 
 async function getTrendingTopics() {
-  const today = new Date().toISOString().slice(0, 10);
-  const results = await callTavilySearch(`trending topics news today ${today}`);
+  const geo = process.env.TRENDS_GEO ?? "IN";
+  const timezoneMinutes = -new Date().getTimezoneOffset();
+  const raw = await googleTrends.dailyTrends({
+    geo,
+    timezone: timezoneMinutes,
+    trendDate: new Date()
+  });
+  const payload = JSON.parse(raw);
   const seen = new Set();
 
-  return results
-    .map((result) => cleanText(result.title || result.content || ""))
-    .map((title) => title.replace(/^#\s*/, "").split(/[:|-]/)[0].trim())
-    .map((title) => title.replace(/\b(today|live updates|breaking news|issue)\b/gi, "").trim())
+  return (payload.default?.trendingSearchesDays ?? [])
+    .flatMap((day) => day.trendingSearches ?? [])
+    .map((item) => cleanText(item.title?.query || ""))
     .filter((title) => title.length > 0)
-    .filter((title) => title.length <= 60)
+    .filter((title) => title.length <= 80)
     .filter((title) => {
       const key = title.toLowerCase();
       if (seen.has(key)) {
@@ -214,7 +295,7 @@ async function getTrendingTopics() {
       seen.add(key);
       return true;
     })
-    .slice(0, 8);
+    .slice(0, 10);
 }
 
 function rankAndSummarizeResults(results) {
@@ -236,7 +317,7 @@ function rankAndSummarizeResults(results) {
 
   return Array.from(deduped.values())
     .sort((left, right) => right.rankScore - left.rankScore)
-    .slice(0, 5)
+    .slice(0, liveSearchResultLimit)
     .map(({ title, url, summary }) => ({ title, url, summary }));
 }
 
@@ -248,7 +329,22 @@ function buildFinalAnswer(sources) {
   return answer.length > 650 ? `${answer.slice(0, 647)}...` : answer;
 }
 
-async function runExternalSearchAgent(query) {
+async function fetchLiveSources(searchQueries) {
+  const collected = [];
+
+  for (const searchQuery of searchQueries) {
+    try {
+      const results = await callSearchApi(searchQuery);
+      collected.push(...results);
+    } catch (error) {
+      console.error(`Live search failed for "${searchQuery}".`, error);
+    }
+  }
+
+  return rankAndSummarizeResults(collected);
+}
+
+async function runOwnedSearchAgent(query) {
   const normalizedQuery = normalizeWhitespace(query);
   if (normalizedQuery.length < 2) {
     return {
@@ -259,45 +355,47 @@ async function runExternalSearchAgent(query) {
     };
   }
 
-  const intent = classifyIntent(query);
-  const searchQueries = buildSearchQueries(query, intent);
-  const [searchResponses, wikipediaSource] = await Promise.all([
-    Promise.all(
-      searchQueries.map(async (searchQuery) => {
-        try {
-          return await callTavilySearch(searchQuery);
-        } catch (error) {
-          console.error(`Tavily search failed for "${searchQuery}":`, error);
-          return [];
-        }
-      })
-    ),
-    fetchWikipediaSummary(query).catch((error) => {
-      console.error(`Wikipedia fallback failed for "${query}":`, error);
-      return null;
-    })
-  ]);
+  const cached = getCachedLiveSearch(normalizedQuery);
+  if (cached) {
+    return cached;
+  }
 
-  const rankedSources = rankAndSummarizeResults(searchResponses.flat());
-  const sources = wikipediaSource
-    ? [
-        wikipediaSource,
-        ...rankedSources.filter((source) => source.url !== wikipediaSource.url)
-      ].slice(0, 5)
-    : rankedSources;
-  const finalAnswer = buildFinalAnswer(sources);
-
-  return {
-    query: normalizeWhitespace(query),
-    search_queries: searchQueries,
-    sources,
-    final_answer: finalAnswer === "insufficient data" ? "Live search is temporarily unavailable. Try again in a moment." : finalAnswer
+  const intent = classifyIntent(normalizedQuery);
+  const liveSearchQueries = buildSearchQueries(normalizedQuery, intent);
+  const liveSources = await fetchLiveSources(liveSearchQueries);
+  const finalAnswer = buildFinalAnswer(liveSources);
+  const payload = {
+    query: normalizedQuery,
+    search_queries: liveSearchQueries,
+    sources: liveSources,
+    final_answer: finalAnswer === "insufficient data"
+      ? "Live search is temporarily unavailable. Try again in a moment."
+      : finalAnswer,
+    index_status: await activeSearchEngine.getStatus()
   };
+
+  setCachedLiveSearch(normalizedQuery, payload);
+  return payload;
 }
 
 function sendJson(res, statusCode, payload) {
   res.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
   res.end(JSON.stringify(payload));
+}
+
+async function readJsonBody(req) {
+  const chunks = [];
+
+  for await (const chunk of req) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
+
+  const raw = Buffer.concat(chunks).toString("utf8").trim();
+  if (!raw) {
+    return {};
+  }
+
+  return JSON.parse(raw);
 }
 
 async function handleStaticRequest(req, res) {
@@ -320,6 +418,17 @@ async function handleStaticRequest(req, res) {
 }
 
 await loadDotEnv();
+if (process.env.DATABASE_URL) {
+  activeSearchEngine = {
+    mode: "postgres",
+    initialize: initializePostgresSearchEngine,
+    indexUrls: indexPostgresUrls,
+    getStatus: getPostgresSearchEngineStatus,
+    search: searchPostgresIndex
+  };
+}
+
+await activeSearchEngine.initialize();
 
 createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${host}:${port}`);
@@ -331,11 +440,75 @@ createServer(async (req, res) => {
     }
 
     try {
-      const payload = await runExternalSearchAgent(rawQuery);
+      const payload = await runOwnedSearchAgent(rawQuery);
       return sendJson(res, 200, payload);
     } catch (error) {
       console.error("Search error:", error);
       return sendJson(res, 500, { query: rawQuery, search_queries: [], sources: [], final_answer: "insufficient data" });
+    }
+  }
+
+  if (req.method === "POST" && url.pathname === "/api/index") {
+    try {
+      const body = await readJsonBody(req);
+      const urls = Array.isArray(body.urls) ? body.urls : [];
+      if (urls.length === 0) {
+        return sendJson(res, 400, { message: "Request body must contain a non-empty urls array." });
+      }
+
+      const payload = await activeSearchEngine.indexUrls(urls, { seedQuery: typeof body.seedQuery === "string" ? body.seedQuery : "" });
+      liveSearchCache.clear();
+      return sendJson(res, 200, {
+        mode: activeSearchEngine.mode,
+        indexed: payload.ingested.length,
+        failed: payload.errors.length,
+        documents: payload.ingested.map((doc) => ({ url: doc.url, title: doc.title, updatedAt: doc.updatedAt })),
+        errors: payload.errors
+      });
+    } catch (error) {
+      console.error("Indexing error:", error);
+      return sendJson(res, 500, { message: "Indexing failed." });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/index/status") {
+    try {
+      const status = await activeSearchEngine.getStatus();
+      return sendJson(res, 200, { mode: activeSearchEngine.mode, ...status });
+    } catch (error) {
+      console.error("Index status error:", error);
+      return sendJson(res, 500, { message: "Unable to read index status." });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/location") {
+    const query = url.searchParams.get("q")?.trim() ?? "";
+    if (!query) {
+      return sendJson(res, 400, { message: "Query parameter q is required." });
+    }
+
+    try {
+      const results = await geocodeAddress(query);
+      return sendJson(res, 200, { query, results });
+    } catch (error) {
+      console.error("Location lookup error:", error);
+      return sendJson(res, 500, { message: "Location lookup failed." });
+    }
+  }
+
+  if (req.method === "GET" && url.pathname === "/api/location/reverse") {
+    const lat = Number(url.searchParams.get("lat"));
+    const lng = Number(url.searchParams.get("lng"));
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      return sendJson(res, 400, { message: "Valid lat and lng query parameters are required." });
+    }
+
+    try {
+      const results = await reverseGeocode(lat, lng);
+      return sendJson(res, 200, { lat, lng, results });
+    } catch (error) {
+      console.error("Reverse location lookup error:", error);
+      return sendJson(res, 500, { message: "Reverse location lookup failed." });
     }
   }
 
