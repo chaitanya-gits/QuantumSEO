@@ -100,6 +100,15 @@ const defaultSearchPlaceholder = "Search anything";
 const elements = {
   answerText: document.getElementById("answerText"),
   answerWrap: document.getElementById("aiAnswer"),
+  authBackdrop: document.getElementById("authBackdrop"),
+  authCloseButton: document.getElementById("authCloseButton"),
+  authDescription: document.getElementById("authDescription"),
+  authEmailInput: document.getElementById("authEmailInput"),
+  authEyebrow: document.getElementById("authEyebrow"),
+  authForm: document.getElementById("authForm"),
+  authModal: document.getElementById("authModal"),
+  authSubmitButton: document.getElementById("authSubmitButton"),
+  authTitle: document.getElementById("authTitle"),
   attachButton: document.getElementById("attachButton"),
   attachMenu: document.getElementById("attachMenu"),
   citations: document.getElementById("citations"),
@@ -114,6 +123,7 @@ const elements = {
   relatedRow: document.getElementById("relatedRow"),
   results: document.getElementById("results"),
   resultsHead: document.getElementById("resultsHead"),
+  searchTabs: Array.from(document.querySelectorAll("[data-search-tab]")),
   searchButton: document.getElementById("searchButton"),
   searchShell: document.querySelector(".search-shell"),
   statusPill: document.getElementById("statusPill"),
@@ -140,6 +150,12 @@ const state = {
   searchController: null,
   voiceDraft: "",
   voicePreviousValue: "",
+};
+
+const devRefreshState = {
+  currentVersion: null,
+  isEnabled: ["localhost", "127.0.0.1"].includes(window.location.hostname),
+  timerId: null,
 };
 
 function readHistory() {
@@ -234,15 +250,59 @@ function setSearchLoading(isLoading, message) {
   setSearchStatus(isLoading ? message || "Searching live web..." : message || "");
 }
 
-function setVoiceUiState(mode) {
-  const isVisible = mode !== "idle";
+function getEffectiveQuery() {
+  return elements.queryInput.value.trim() || state.lastSubmittedQuery.trim();
+}
 
-  elements.searchShell.classList.toggle("is-voice-mode", isVisible);
-  elements.voiceFeedback.classList.toggle("is-visible", isVisible);
-  elements.voiceStopButton.classList.toggle("is-visible", mode === "recording");
-  elements.voiceButton.style.opacity = mode === "recording" ? "0.55" : "1";
+function setActiveSearchTab(tabName) {
+  elements.searchTabs.forEach((button) => {
+    button.classList.toggle(
+      "is-active",
+      button.getAttribute("data-search-tab") === tabName,
+    );
+  });
+}
+
+function openSearchVertical(tabName) {
+  const query = getEffectiveQuery();
+
+  if (tabName === "maps") {
+    window.open(
+      `https://www.google.com/maps/search/${encodeURIComponent(query || "maps")}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
+    return;
+  }
+
+  const url = new URL("https://www.google.com/search");
+
+  if (query) {
+    url.searchParams.set("q", query);
+  }
+
+  if (tabName === "images") {
+    url.searchParams.set("tbm", "isch");
+  } else if (tabName === "videos") {
+    url.searchParams.set("tbm", "vid");
+  } else if (tabName === "news") {
+    url.searchParams.set("tbm", "nws");
+  }
+
+  window.open(url.toString(), "_blank", "noopener,noreferrer");
+}
+
+function setVoiceUiState(mode) {
+  const isRecording = mode === "recording";
+
+  elements.searchShell.classList.toggle("is-recording", isRecording);
+  elements.voiceButton.classList.toggle("is-recording", isRecording);
+  elements.voiceFeedback.classList.remove("is-visible");
+  elements.voiceStopButton.classList.remove("is-visible");
+  elements.voiceButton.style.opacity = "1";
   elements.queryInput.placeholder =
     mode === "recording" ? "Listening..." : defaultSearchPlaceholder;
+  elements.queryInput.classList.toggle("is-listening", isRecording);
 }
 
 function clearVoiceDraft() {
@@ -798,6 +858,7 @@ function updateActiveItem() {
 
 async function executeSearch(query) {
   const trimmedQuery = query.trim();
+  setActiveSearchTab("all");
 
   if (!trimmedQuery) {
     renderResults("");
@@ -888,7 +949,59 @@ function handlePickedFiles(files) {
   void executeSearch(summary);
 }
 
+function setAuthMode(mode) {
+  const isSignup = mode === "signup";
+
+  elements.authEyebrow.textContent = "QuAir account";
+  elements.authTitle.textContent = isSignup ? "Create your account" : "Log in or sign up";
+  elements.authDescription.textContent = "";
+  elements.authSubmitButton.textContent = isSignup ? "Sign up with email" : "Continue";
+}
+
+function openAuthModal(mode) {
+  setAuthMode(mode);
+  elements.authModal.classList.add("is-open");
+  elements.authModal.setAttribute("aria-hidden", "false");
+  elements.authEmailInput.focus();
+}
+
+function closeAuthModal() {
+  elements.authModal.classList.remove("is-open");
+  elements.authModal.setAttribute("aria-hidden", "true");
+}
+
 function bindEvents() {
+  document.querySelectorAll("[data-auth-trigger]").forEach((button) => {
+    button.addEventListener("click", () => {
+      openAuthModal(button.getAttribute("data-auth-trigger") || "login");
+    });
+  });
+
+  elements.authCloseButton.addEventListener("click", closeAuthModal);
+  elements.authBackdrop.addEventListener("click", closeAuthModal);
+
+  elements.authForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+  });
+
+  document.querySelectorAll("[data-provider]").forEach((button) => {
+    button.addEventListener("click", () => {});
+  });
+
+  elements.searchTabs.forEach((button) => {
+    button.addEventListener("click", () => {
+      const tabName = button.getAttribute("data-search-tab") || "all";
+      setActiveSearchTab(tabName);
+
+      if (tabName === "all") {
+        void executeSearch(getEffectiveQuery());
+        return;
+      }
+
+      openSearchVertical(tabName);
+    });
+  });
+
   elements.queryInput.addEventListener("focus", () => {
     openDropdown(elements.queryInput.value);
   });
@@ -932,6 +1045,7 @@ function bindEvents() {
 
     if (event.key === "Escape") {
       closeDropdown();
+      closeAuthModal();
     }
   });
 
@@ -939,6 +1053,12 @@ function bindEvents() {
     if (!event.target.closest(".search-stage")) {
       closeDropdown();
       closeAttachMenu();
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeAuthModal();
     }
   });
 
@@ -963,18 +1083,27 @@ function bindEvents() {
 
     state.recognition = new SpeechRecognition();
     state.recognition.lang = "en-US";
-    state.recognition.interimResults = false;
-    state.recognition.maxAlternatives = 1;
+    state.recognition.continuous = true;
+    state.recognition.interimResults = true;
+    state.recognition.maxAlternatives = 2;
     setVoiceUiState("recording");
 
     state.recognition.onresult = (event) => {
+      let interimTranscript = "";
+
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const transcript = event.results[index][0]?.transcript || "";
 
         if (event.results[index].isFinal) {
           state.voiceDraft = `${state.voiceDraft} ${transcript}`.trim();
+        } else {
+          interimTranscript = `${interimTranscript} ${transcript}`.trim();
         }
       }
+
+      const liveTranscript = `${state.voiceDraft} ${interimTranscript}`.trim();
+      elements.queryInput.value = liveTranscript;
+      updateClearButton();
     };
 
     state.recognition.onerror = () => {
@@ -994,6 +1123,7 @@ function bindEvents() {
         elements.queryInput.focus();
       } else {
         elements.queryInput.value = state.voicePreviousValue;
+        updateClearButton();
       }
 
       state.voicePreviousValue = "";
@@ -1061,11 +1191,57 @@ function bindEvents() {
   });
 }
 
+async function checkForLocalChanges() {
+  if (!devRefreshState.isEnabled) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/api/dev/version?ts=${Date.now()}`, {
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return;
+    }
+
+    const payload = await response.json();
+    const nextVersion = String(payload.version || "");
+
+    if (!nextVersion) {
+      return;
+    }
+
+    if (devRefreshState.currentVersion === null) {
+      devRefreshState.currentVersion = nextVersion;
+      return;
+    }
+
+    if (devRefreshState.currentVersion !== nextVersion) {
+      window.location.reload();
+    }
+  } catch {
+    // Ignore transient dev refresh polling failures.
+  }
+}
+
+function startLocalAutoRefresh() {
+  if (!devRefreshState.isEnabled || devRefreshState.timerId !== null) {
+    return;
+  }
+
+  void checkForLocalChanges();
+  devRefreshState.timerId = window.setInterval(() => {
+    void checkForLocalChanges();
+  }, 1000);
+}
+
 function initializePage() {
   renderResults("");
   closeDropdown();
   updateClearButton();
   bindEvents();
+  startLocalAutoRefresh();
   void loadTrendingTopics();
   void updateUserLocation();
 }

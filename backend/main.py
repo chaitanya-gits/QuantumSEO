@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Iterable
 
 import httpx
 import uvicorn
@@ -64,6 +65,31 @@ app.include_router(trending_router, prefix="/api")
 app.include_router(health_router, prefix="/api")
 
 
+def _iter_tracked_files() -> Iterable[Path]:
+    tracked_roots = (
+        Path("backend"),
+        Path(settings.frontend_dir),
+    )
+
+    for root in tracked_roots:
+        if not root.exists():
+            continue
+
+        for file_path in root.rglob("*"):
+            if file_path.is_file():
+                yield file_path
+
+
+@app.get("/api/dev/version")
+async def get_dev_version() -> JSONResponse:
+    latest_mtime_ns = 0
+
+    for file_path in _iter_tracked_files():
+        latest_mtime_ns = max(latest_mtime_ns, file_path.stat().st_mtime_ns)
+
+    return JSONResponse({"version": str(latest_mtime_ns)})
+
+
 @app.get("/api/location/reverse")
 async def reverse_location(lat: float = Query(...), lng: float = Query(...)) -> JSONResponse:
     url = "https://nominatim.openstreetmap.org/reverse"
@@ -107,4 +133,10 @@ app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 
 if __name__ == "__main__":
-    uvicorn.run("backend.main:app", host=settings.host, port=settings.port, reload=False)
+    uvicorn.run(
+        "backend.main:app",
+        host=settings.host,
+        port=settings.port,
+        reload=True,
+        reload_dirs=["backend"],
+    )

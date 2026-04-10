@@ -8,8 +8,20 @@
 </head>
 <body>
   <main class="page">
+    <header class="page-header">
+      <nav class="auth-actions" aria-label="Account actions">
+        <button class="auth-button auth-button-primary" type="button" data-auth-trigger="signup">
+          Sign up for more
+        </button>
+        <button class="auth-button auth-button-secondary" type="button" data-auth-trigger="login">
+          Log In
+        </button>
+      </nav>
+      <div class="top-brand" aria-label="QuAir Search">[QuAir Search]</div>
+    </header>
+
     <section class="hero">
-      <h1 class="brand"><strong>[Quinfosys</strong> Search]<p>prototype</p></h1>
+      <h1 class="brand">QuAir</h1>
       <p class="subcopy">
         Explore hybrid search results, quick explanations, and source-backed answers in one place.
       </p>
@@ -71,8 +83,8 @@
               aria-label="Run search"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M5 12h12"></path>
-                <path d="M13 6l6 6-6 6"></path>
+                <path d="M12 19V5"></path>
+                <path d="M5 12l7-7 7 7"></path>
               </svg>
             </button>
 
@@ -83,12 +95,8 @@
                 type="button"
                 aria-label="Stop recording"
               >
-                <span class="voice-stop-dots" aria-hidden="true">
-                  <span></span>
-                  <span></span>
-                  <span></span>
-                </span>
-                <span>Stop</span>
+                <span class="voice-pulse" aria-hidden="true"></span>
+                <span>Listening</span>
               </button>
             </div>
           </div>
@@ -125,6 +133,14 @@
           <div id="suggestPanel" class="suggest-panel" role="listbox"></div>
         </div>
       </div>
+
+      <nav class="search-tabs" aria-label="Search filters">
+        <button class="search-tab is-active" type="button" data-search-tab="all">All</button>
+        <button class="search-tab" type="button" data-search-tab="images">Images</button>
+        <button class="search-tab" type="button" data-search-tab="videos">Videos</button>
+        <button class="search-tab" type="button" data-search-tab="maps">Maps</button>
+        <button class="search-tab" type="button" data-search-tab="news">News</button>
+      </nav>
     </section>
 
     <section class="results-section">
@@ -150,6 +166,67 @@
       <div id="locationMeta" class="location-meta"></div>
     </section>
   </main>
+
+  <div id="authModal" class="auth-modal" aria-hidden="true">
+    <div id="authBackdrop" class="auth-backdrop"></div>
+    <section
+      class="auth-dialog"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="authTitle"
+      aria-describedby="authDescription"
+    >
+      <button id="authCloseButton" class="auth-close" type="button" aria-label="Close authentication dialog">
+        ×
+      </button>
+
+      <div class="auth-dialog-header">
+        <span id="authEyebrow" class="auth-eyebrow">QuAir account</span>
+        <h2 id="authTitle" class="auth-title">Log in or sign up</h2>
+        <p id="authDescription" class="auth-description"></p>
+      </div>
+
+      <div class="auth-providers">
+        <button class="provider-button" type="button" data-provider="Google">
+          <span class="provider-icon provider-icon-google" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path fill="#4285f4" d="M21.6 12.23c0-.74-.07-1.45-.19-2.13H12v4.03h5.38a4.6 4.6 0 0 1-2 3.02v2.51h3.24c1.9-1.75 2.98-4.32 2.98-7.43z"></path>
+              <path fill="#34a853" d="M12 22c2.7 0 4.97-.89 6.62-2.34l-3.24-2.51c-.9.6-2.05.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H3.06v2.59A10 10 0 0 0 12 22z"></path>
+              <path fill="#fbbc05" d="M6.41 13.99a6.02 6.02 0 0 1 0-3.98V7.42H3.06a10 10 0 0 0 0 9.16l3.35-2.59z"></path>
+              <path fill="#ea4335" d="M12 5.89c1.47 0 2.79.51 3.82 1.5l2.87-2.87C16.96 2.91 14.69 2 12 2a10 10 0 0 0-8.94 5.42l3.35 2.59C7.2 7.65 9.4 5.89 12 5.89z"></path>
+            </svg>
+          </span>
+          <span id="googleLabel">Continue with Google</span>
+        </button>
+        <button class="provider-button" type="button" data-provider="X">
+          <span class="provider-icon provider-icon-x" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path fill="currentColor" d="M18.9 3h2.8l-6.2 7.1L22.8 21h-5.7l-4.4-6.7L6.9 21H4.1l6.6-7.6L1.7 3h5.8l4 6.2L18.9 3z"></path>
+            </svg>
+          </span>
+          <span id="xLabel">Continue with X</span>
+        </button>
+      </div>
+
+      <div class="auth-divider" aria-hidden="true">
+        <span></span>
+        <strong>or</strong>
+        <span></span>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <label class="auth-field">
+          <span class="auth-field-label">Email address</span>
+          <input id="authEmailInput" class="auth-input" type="email" placeholder="you@example.com" autocomplete="email" />
+        </label>
+        <button id="authSubmitButton" class="auth-submit" type="submit">Continue</button>
+      </form>
+
+      <p class="auth-footnote">
+        By continuing, you agree to the Terms and Privacy Policy.
+      </p>
+    </section>
+  </div>
 
   <script type="module" src="./assets/app.js"></script>
 </body>
