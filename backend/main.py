@@ -139,10 +139,19 @@ app.mount("/", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 
 if __name__ == "__main__":
+    ssl_keyfile = Path("/app/certs/key.pem")
+    ssl_certfile = Path("/app/certs/cert.pem")
+    
+    ssl_kwargs = {}
+    if ssl_keyfile.exists() and ssl_certfile.exists():
+        ssl_kwargs["ssl_keyfile"] = str(ssl_keyfile)
+        ssl_kwargs["ssl_certfile"] = str(ssl_certfile)
+    
     uvicorn.run(
         "backend.main:app",
         host=settings.host,
         port=settings.port,
         reload=True,
         reload_dirs=["backend"],
+        **ssl_kwargs,
     )

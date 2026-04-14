@@ -6,7 +6,7 @@ from backend.indexer.es_client import SearchIndexClient
 from backend.ranking.bm25 import rank_with_bm25
 from backend.ranking.freshness import apply_freshness_boost
 from backend.ranking.fusion import reciprocal_rank_fusion
-from backend.ranking.pagerank import apply_pagerank_boost
+from backend.ranking.pagerank import apply_authority_boost, apply_pagerank_boost
 from backend.search.ai_pipeline import generate_ai_answer, search_web
 from backend.search.query_parser import parse_query
 from backend.search.result_builder import build_answer, build_sources
@@ -52,7 +52,9 @@ class SearchEngine:
         ranked_results.sort(key=lambda item: item["score"], reverse=True)
 
         web_results = await search_web(primary_query, self.redis, limit=limit)
+        web_results = apply_authority_boost(web_results)
         merged_results = self._merge_results(ranked_results, web_results, limit=limit)
+        merged_results.sort(key=lambda item: float(item.get("score", 0.0)), reverse=True)
         built_sources = build_sources(merged_results, limit=limit)
         final_answer = await generate_ai_answer(
             query=parsed_query.normalized,
