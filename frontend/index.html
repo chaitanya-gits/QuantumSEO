@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>[QuAir Search]</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%234870ff'/%3E%3Cellipse cx='32' cy='32' rx='22' ry='8' fill='none' stroke='%23fff' stroke-width='2.5'/%3E%3Cellipse cx='32' cy='32' rx='22' ry='8' fill='none' stroke='%23fff' stroke-width='2.5' transform='rotate(60 32 32)'/%3E%3Cellipse cx='32' cy='32' rx='22' ry='8' fill='none' stroke='%23fff' stroke-width='2.5' transform='rotate(120 32 32)'/%3E%3Ccircle cx='32' cy='32' r='5' fill='%23fff'/%3E%3C/svg%3E" />
-  <link rel="stylesheet" href="./assets/styles.css?v=20260413s" />
+  <link rel="stylesheet" href="./assets/styles.css?v=20260414b" />
 </head>
 <body>
   <main class="page">
@@ -64,6 +64,11 @@
                 <svg class="dropdown-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                 <span class="dropdown-feature-text">Language</span>
                 <span id="languageStatusLabel" class="dropdown-feature-badge">English</span>
+              </button>
+
+              <button id="menuBookmarks" class="dropdown-feature-item" type="button" role="menuitem">
+                <svg class="dropdown-feature-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+                <span class="dropdown-feature-text">Bookmarks</span>
               </button>
             </div>
           </div>
@@ -194,9 +199,34 @@
         <div id="statusPill" class="status-pill"></div>
       </div>
 
+      <div id="searchFilters" class="search-filters" hidden>
+        <select id="filterDateRange" class="filter-select" title="Date range">
+          <option value="">Any time</option>
+          <option value="day">Past 24 hours</option>
+          <option value="week">Past week</option>
+          <option value="month">Past month</option>
+          <option value="year">Past year</option>
+        </select>
+        <input id="filterSite" class="filter-input" type="text" placeholder="Site: example.com" title="Filter by site" />
+        <select id="filterFileType" class="filter-select" title="File type">
+          <option value="">Any type</option>
+          <option value="pdf">PDF</option>
+          <option value="doc">DOC</option>
+          <option value="ppt">PPT</option>
+          <option value="xls">XLS</option>
+          <option value="csv">CSV</option>
+        </select>
+        <button id="applyFilters" class="filter-apply" type="button">Apply</button>
+      </div>
+
+      <div id="instantAnswer" class="instant-answer" hidden></div>
+
       <div id="relatedLabel" class="related-label">Suggested questions</div>
       <div id="relatedRow" class="related-row"></div>
       <div id="results" class="results-list"></div>
+      <div id="loadMoreWrap" class="load-more-wrap" hidden>
+        <button id="loadMoreButton" class="load-more-button" type="button">Load more results</button>
+      </div>
       <div id="emptyState" class="empty-state"></div>
     </section>
 
@@ -373,11 +403,27 @@
             <span class="history-toggle-slider"></span>
             <span class="history-toggle-label">Saving</span>
           </label>
+          <button id="historyExportButton" class="history-export" type="button" title="Export history">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
           <button id="historyDeleteAllButton" class="history-delete-all" type="button">Delete all</button>
           <button id="historyCloseButton" class="history-close" type="button" aria-label="Close history">&times;</button>
         </div>
       </div>
       <div id="historyList" class="history-list"></div>
+    </section>
+  </div>
+
+  <div id="bookmarksModal" class="history-modal" aria-hidden="true">
+    <div id="bookmarksBackdrop" class="history-backdrop"></div>
+    <section class="history-panel" role="dialog" aria-modal="true" aria-labelledby="bookmarksPanelTitle">
+      <div class="history-panel-header">
+        <h2 id="bookmarksPanelTitle" class="history-panel-title">Bookmarks</h2>
+        <div class="history-header-actions">
+          <button id="bookmarksCloseButton" class="history-close" type="button" aria-label="Close bookmarks">&times;</button>
+        </div>
+      </div>
+      <div id="bookmarksList" class="history-list"></div>
     </section>
   </div>
 
@@ -391,6 +437,6 @@
     </section>
   </div>
 
-  <script type="module" src="./assets/app.js?v=20260413o"></script>
+  <script type="module" src="./assets/app.js?v=20260414b"></script>
 </body>
 </html>

@@ -3,6 +3,7 @@ const historySavingKey = "quair-history-saving";
 const profilePrefsKey = "quair-profile-preferences";
 const settingsPrefsKey = "quair-settings";
 const knownAccountsKey = "quair-known-accounts";
+const bookmarksKey = "quair-bookmarks";
 const defaultSearchPlaceholder = "Search anything";
 const translationBatchSize = 60;
 
@@ -97,6 +98,20 @@ const elements = {
   addAccountButton: document.getElementById("addAccountButton"),
   topBrandButton: document.getElementById("topBrandButton"),
   userProfile: document.getElementById("userProfile"),
+  filterDateRange: document.getElementById("filterDateRange"),
+  filterSite: document.getElementById("filterSite"),
+  filterFileType: document.getElementById("filterFileType"),
+  applyFilters: document.getElementById("applyFilters"),
+  searchFilters: document.getElementById("searchFilters"),
+  instantAnswer: document.getElementById("instantAnswer"),
+  loadMoreWrap: document.getElementById("loadMoreWrap"),
+  loadMoreButton: document.getElementById("loadMoreButton"),
+  historyExportButton: document.getElementById("historyExportButton"),
+  menuBookmarks: document.getElementById("menuBookmarks"),
+  bookmarksModal: document.getElementById("bookmarksModal"),
+  bookmarksBackdrop: document.getElementById("bookmarksBackdrop"),
+  bookmarksCloseButton: document.getElementById("bookmarksCloseButton"),
+  bookmarksList: document.getElementById("bookmarksList"),
   attachButton: document.getElementById("attachButton"),
   attachPreview: document.getElementById("attachPreview"),
   attachMenu: document.getElementById("attachMenu"),
@@ -141,6 +156,10 @@ const state = {
   languageApplyToken: 0,
   voiceDraft: "",
   voicePreviousValue: "",
+  lastSearchPayload: null,
+  displayedResultCount: 0,
+  resultPageSize: 8,
+  previewHoverTimer: null,
 };
 
 const devRefreshState = {
@@ -231,6 +250,167 @@ function removeHistoryItem(value) {
   );
   writeHistoryEntries(entries);
   openDropdown(elements.queryInput.value);
+}
+
+function readBookmarks() {
+  try {
+    return JSON.parse(localStorage.getItem(bookmarksKey) || "[]");
+  } catch { return []; }
+}
+
+function writeBookmarks(items) {
+  localStorage.setItem(bookmarksKey, JSON.stringify(items.slice(0, 200)));
+}
+
+function addBookmark(url, title, snippet) {
+  const existing = readBookmarks();
+  if (existing.some((b) => b.url === url)) return;
+  existing.unshift({ url, title, snippet: snippet || "", timestamp: Date.now() });
+  writeBookmarks(existing);
+}
+
+function removeBookmark(url) {
+  writeBookmarks(readBookmarks().filter((b) => b.url !== url));
+}
+
+function isBookmarked(url) {
+  return readBookmarks().some((b) => b.url === url);
+}
+
+function renderBookmarksList() {
+  const bookmarks = readBookmarks();
+  if (!bookmarks.length) {
+    elements.bookmarksList.innerHTML = '<div class="history-empty">No bookmarks yet. Click the bookmark icon on search results to save them.</div>';
+    return;
+  }
+  let html = "";
+  for (const bm of bookmarks) {
+    const host = (() => { try { return new URL(bm.url).hostname; } catch { return bm.url; } })();
+    html += `<div class="history-entry">
+      <img class="history-entry-favicon" src="https://www.google.com/s2/favicons?sz=32&domain=${encodeURIComponent(host)}" alt="" />
+      <div class="history-entry-body">
+        <a class="history-entry-query" href="${escapeHtml(bm.url)}" target="_blank" rel="noreferrer noopener" style="text-decoration:none;color:inherit">${escapeHtml(bm.title)}</a>
+        <span class="history-entry-source">${escapeHtml(host)}</span>
+      </div>
+      <button class="history-entry-delete" type="button" title="Remove bookmark" data-bm-url="${escapeHtml(bm.url)}">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>`;
+  }
+  elements.bookmarksList.innerHTML = html;
+  for (const btn of elements.bookmarksList.querySelectorAll("[data-bm-url]")) {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeBookmark(btn.getAttribute("data-bm-url"));
+      renderBookmarksList();
+    });
+  }
+}
+
+function openBookmarksModal() {
+  renderBookmarksList();
+  elements.bookmarksModal.classList.add("is-open");
+  elements.bookmarksModal.setAttribute("aria-hidden", "false");
+}
+
+function closeBookmarksModal() {
+  elements.bookmarksModal.classList.remove("is-open");
+  elements.bookmarksModal.setAttribute("aria-hidden", "true");
+}
+
+function exportHistoryAs(format) {
+  const entries = readHistoryEntries();
+  if (!entries.length) return;
+  let content = "";
+  let mime = "application/json";
+  let ext = "json";
+  if (format === "csv") {
+    const rows = [["Date", "Time", "Query"]];
+    for (const e of entries) {
+      const d = new Date(e.timestamp);
+      rows.push([d.toLocaleDateString(), d.toLocaleTimeString(), `"${e.query.replace(/"/g, '""')}"`]);
+    }
+    content = rows.map((r) => r.join(",")).join("\n");
+    mime = "text/csv";
+    ext = "csv";
+  } else {
+    content = JSON.stringify(entries, null, 2);
+  }
+  const blob = new Blob([content], { type: mime });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `quair-search-history.${ext}`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function tryInstantAnswer(query) {
+  const trimmed = query.trim();
+  const mathResult = tryCalculator(trimmed);
+  if (mathResult) {
+    elements.instantAnswer.hidden = false;
+    elements.instantAnswer.innerHTML = `
+      <span class="instant-answer-label">Calculator</span>
+      <div class="instant-answer-expression">${escapeHtml(trimmed)}</div>
+      <div class="instant-answer-value">${escapeHtml(mathResult)}</div>`;
+    return true;
+  }
+  const unitResult = tryUnitConvert(trimmed);
+  if (unitResult) {
+    elements.instantAnswer.hidden = false;
+    elements.instantAnswer.innerHTML = `
+      <span class="instant-answer-label">Unit Converter</span>
+      <div class="instant-answer-expression">${escapeHtml(trimmed)}</div>
+      <div class="instant-answer-value">${escapeHtml(unitResult)}</div>`;
+    return true;
+  }
+  elements.instantAnswer.hidden = true;
+  return false;
+}
+
+function tryCalculator(expr) {
+  const cleaned = expr.replace(/[^0-9+\-*/.()^%\s]/g, "").trim();
+  if (!cleaned || !/\d/.test(cleaned)) return null;
+  try {
+    const safe = cleaned.replace(/\^/g, "**");
+    const result = Function(`"use strict"; return (${safe})`)();
+    if (typeof result === "number" && Number.isFinite(result)) {
+      return result % 1 === 0 ? result.toLocaleString() : Number.parseFloat(result.toPrecision(12)).toLocaleString();
+    }
+  } catch { /* not a math expression */ }
+  return null;
+}
+
+function tryUnitConvert(query) {
+  const patterns = [
+    { re: /([\d.]+)\s*(km|kilometers?)\s+(?:in|to)\s+(mi|miles?)/i, fn: (v) => `${(v * 0.621371).toFixed(4)} miles` },
+    { re: /([\d.]+)\s*(mi|miles?)\s+(?:in|to)\s+(km|kilometers?)/i, fn: (v) => `${(v * 1.60934).toFixed(4)} km` },
+    { re: /([\d.]+)\s*(kg|kilograms?)\s+(?:in|to)\s+(lbs?|pounds?)/i, fn: (v) => `${(v * 2.20462).toFixed(4)} lbs` },
+    { re: /([\d.]+)\s*(lbs?|pounds?)\s+(?:in|to)\s+(kg|kilograms?)/i, fn: (v) => `${(v * 0.453592).toFixed(4)} kg` },
+    { re: /([\d.]+)\s*°?[cf]\s+(?:in|to)\s+°?([cf])/i, fn: (v, m) => {
+      const from = m[0].toLowerCase().includes("c") ? "c" : "f";
+      const to = m[m.length - 1].toLowerCase();
+      if (from === "c" && to === "f") return `${((v * 9 / 5) + 32).toFixed(2)} °F`;
+      if (from === "f" && to === "c") return `${((v - 32) * 5 / 9).toFixed(2)} °C`;
+      return null;
+    }},
+    { re: /([\d.]+)\s*(cm|centimeters?)\s+(?:in|to)\s+(in|inches?)/i, fn: (v) => `${(v * 0.393701).toFixed(4)} inches` },
+    { re: /([\d.]+)\s*(in|inches?)\s+(?:in|to)\s+(cm|centimeters?)/i, fn: (v) => `${(v * 2.54).toFixed(4)} cm` },
+    { re: /([\d.]+)\s*(m|meters?)\s+(?:in|to)\s+(ft|feet|foot)/i, fn: (v) => `${(v * 3.28084).toFixed(4)} feet` },
+    { re: /([\d.]+)\s*(ft|feet|foot)\s+(?:in|to)\s+(m|meters?)/i, fn: (v) => `${(v * 0.3048).toFixed(4)} meters` },
+    { re: /([\d.]+)\s*(l|liters?|litres?)\s+(?:in|to)\s+(gal|gallons?)/i, fn: (v) => `${(v * 0.264172).toFixed(4)} gallons` },
+    { re: /([\d.]+)\s*(gal|gallons?)\s+(?:in|to)\s+(l|liters?|litres?)/i, fn: (v) => `${(v * 3.78541).toFixed(4)} liters` },
+  ];
+  for (const p of patterns) {
+    const match = query.match(p.re);
+    if (match) {
+      const value = Number.parseFloat(match[1]);
+      if (!Number.isFinite(value)) continue;
+      const result = p.fn(value, match);
+      if (result) return result;
+    }
+  }
+  return null;
 }
 
 function removeHistoryEntry(entryId) {
@@ -737,42 +917,87 @@ function renderErrorState(query, message) {
     : "Search is temporarily unavailable.";
 }
 
+function buildResultCard(source) {
+  const card = document.createElement("article");
+  card.className = "result-card";
+  const bookmarked = isBookmarked(source.url);
+  card.innerHTML = `
+    <button class="result-bookmark${bookmarked ? " is-bookmarked" : ""}" type="button" title="${bookmarked ? "Remove bookmark" : "Bookmark"}" data-bm-url="${escapeHtml(source.url)}">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="${bookmarked ? "currentColor" : "none"}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    </button>
+    <div class="result-url">${escapeHtml(source.url)}</div>
+    <h3 class="result-title">
+      <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(source.title)}</a>
+    </h3>
+    <p class="result-snippet">${escapeHtml(source.summary)}</p>
+    <div class="result-preview-tooltip">${escapeHtml((source.summary || "").slice(0, 260))}${(source.summary || "").length > 260 ? "..." : ""}</div>
+  `;
+  const bmBtn = card.querySelector(".result-bookmark");
+  bmBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (isBookmarked(source.url)) {
+      removeBookmark(source.url);
+      bmBtn.classList.remove("is-bookmarked");
+      bmBtn.querySelector("svg").setAttribute("fill", "none");
+      bmBtn.title = "Bookmark";
+    } else {
+      addBookmark(source.url, source.title, source.summary);
+      bmBtn.classList.add("is-bookmarked");
+      bmBtn.querySelector("svg").setAttribute("fill", "currentColor");
+      bmBtn.title = "Remove bookmark";
+    }
+  });
+  const cardLink = card.querySelector(".result-title a");
+  if (cardLink) {
+    cardLink.addEventListener("click", () => {
+      saveHistory(`${source.title} – ${(() => { try { return new URL(source.url).hostname; } catch { return source.url; } })()}`);
+    });
+  }
+  return card;
+}
+
+function showMoreResults() {
+  if (!state.lastSearchPayload) return;
+  const sources = Array.isArray(state.lastSearchPayload.sources) ? state.lastSearchPayload.sources : [];
+  const end = Math.min(state.displayedResultCount + state.resultPageSize, sources.length);
+  for (let i = state.displayedResultCount; i < end; i++) {
+    elements.results.appendChild(buildResultCard(sources[i]));
+  }
+  state.displayedResultCount = end;
+  elements.loadMoreWrap.hidden = end >= sources.length;
+}
+
 function renderLiveResults(query, payload) {
   const sources = Array.isArray(payload.sources) ? payload.sources : [];
+  state.lastSearchPayload = payload;
+  state.displayedResultCount = 0;
+
+  tryInstantAnswer(query);
+  elements.searchFilters.hidden = false;
 
   renderOverview(query, payload.final_answer || "insufficient data", sources);
   elements.citations.innerHTML = "";
   elements.results.innerHTML = "";
 
-  for (const source of sources) {
+  for (const source of sources.slice(0, 3)) {
     const link = document.createElement("a");
     link.className = "citation";
     link.href = source.url;
     link.target = "_blank";
-    link.textContent = new URL(source.url).hostname;
+    link.textContent = (() => { try { return new URL(source.url).hostname; } catch { return source.url; } })();
     link.rel = "noreferrer noopener";
     link.addEventListener("click", () => {
-      saveHistory(`${source.title} – ${new URL(source.url).hostname}`);
+      saveHistory(`${source.title} – ${link.textContent}`);
     });
     elements.citations.appendChild(link);
-
-    const card = document.createElement("article");
-    card.className = "result-card";
-    card.innerHTML = `
-      <div class="result-url">${escapeHtml(source.url)}</div>
-      <h3 class="result-title">
-        <a href="${escapeHtml(source.url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(source.title)}</a>
-      </h3>
-      <p class="result-snippet">${escapeHtml(source.summary)}</p>
-    `;
-    const cardLink = card.querySelector(".result-title a");
-    if (cardLink) {
-      cardLink.addEventListener("click", () => {
-        saveHistory(`${source.title} – ${new URL(source.url).hostname}`);
-      });
-    }
-    elements.results.appendChild(card);
   }
+
+  const initialBatch = sources.slice(0, state.resultPageSize);
+  for (const source of initialBatch) {
+    elements.results.appendChild(buildResultCard(source));
+  }
+  state.displayedResultCount = initialBatch.length;
+  elements.loadMoreWrap.hidden = sources.length <= state.resultPageSize;
 
   setSuggestedQuestions(buildFollowUpQuestions(query, sources), query);
   elements.answerWrap.classList.add("is-visible");
@@ -960,17 +1185,20 @@ async function executeSearch(query, attachmentContext = "", options = {}) {
     saveHistory(trimmedQuery);
   }
   closeDropdown();
+  tryInstantAnswer(trimmedQuery);
   setSearchLoading(true);
   state.lastSubmittedQuery = displayQuery;
 
   try {
     const translatedQuery = await translateQueryForSearch(trimmedQuery, settings.displayLanguage);
-    const response = await fetch(
-      `/api/search?q=${encodeURIComponent(translatedQuery)}&region=${encodeURIComponent(settings.region)}&hl=${encodeURIComponent(settings.displayLanguage)}&safe_search=${encodeURIComponent(settings.safeSearch)}&context=${encodeURIComponent(attachmentContext)}`,
-      {
-      signal: state.searchController.signal,
-      },
-    );
+    let searchUrl = `/api/search?q=${encodeURIComponent(translatedQuery)}&region=${encodeURIComponent(settings.region)}&hl=${encodeURIComponent(settings.displayLanguage)}&safe_search=${encodeURIComponent(settings.safeSearch)}&context=${encodeURIComponent(attachmentContext)}`;
+    const siteFilter = elements.filterSite?.value?.trim();
+    if (siteFilter) searchUrl += `&site=${encodeURIComponent(siteFilter)}`;
+    const dateFilter = elements.filterDateRange?.value;
+    if (dateFilter) searchUrl += `&date_range=${encodeURIComponent(dateFilter)}`;
+    const fileFilter = elements.filterFileType?.value;
+    if (fileFilter) searchUrl += `&filetype=${encodeURIComponent(fileFilter)}`;
+    const response = await fetch(searchUrl, { signal: state.searchController.signal });
 
     if (!response.ok) {
       throw new Error(`Search request failed with status ${response.status}`);
@@ -2271,6 +2499,25 @@ function bindEvents() {
       closeAuthModal();
       closeImagePreview();
       closeHistoryModal();
+      closeBookmarksModal();
+    }
+
+    const tag = document.activeElement?.tagName;
+    const isTyping = tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || document.activeElement?.isContentEditable;
+
+    if (!isTyping && event.key === "/" && !event.ctrlKey && !event.metaKey) {
+      event.preventDefault();
+      elements.queryInput.focus();
+    }
+
+    if (!isTyping && event.key === "b" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      openBookmarksModal();
+    }
+
+    if (!isTyping && event.key === "h" && (event.ctrlKey || event.metaKey) && event.shiftKey) {
+      event.preventDefault();
+      openHistoryModal();
     }
   });
 
@@ -2371,6 +2618,37 @@ function bindEvents() {
     handlePickedFiles(files);
     elements.filePicker.value = "";
   });
+
+  if (elements.loadMoreButton) {
+    elements.loadMoreButton.addEventListener("click", showMoreResults);
+  }
+
+  if (elements.applyFilters) {
+    elements.applyFilters.addEventListener("click", () => {
+      void executeSearch(elements.queryInput.value, state.attachmentContext);
+    });
+  }
+
+  if (elements.menuBookmarks) {
+    elements.menuBookmarks.addEventListener("click", () => {
+      elements.profileDropdown.hidden = true;
+      elements.avatarButton.setAttribute("aria-expanded", "false");
+      openBookmarksModal();
+    });
+  }
+
+  if (elements.bookmarksCloseButton) {
+    elements.bookmarksCloseButton.addEventListener("click", closeBookmarksModal);
+  }
+  if (elements.bookmarksBackdrop) {
+    elements.bookmarksBackdrop.addEventListener("click", closeBookmarksModal);
+  }
+
+  if (elements.historyExportButton) {
+    elements.historyExportButton.addEventListener("click", () => {
+      exportHistoryAs("json");
+    });
+  }
 }
 
 async function checkForLocalChanges() {
